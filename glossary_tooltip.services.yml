@@ -1,4 +1,13 @@
 services:
   glossary_tooltip.processor:
     class: Drupal\glossary_tooltip\Service\GlossaryProcessor
-    arguments: ['@entity_type.manager']
+    arguments:
+      - '@entity_type.manager'
+
+  glossary_tooltip.response_subscriber:
+    class: Drupal\glossary_tooltip\EventSubscriber\ResponseSubscriber
+    arguments:
+      - '@glossary_tooltip.processor'
+      - '@router.admin_context'
+    tags:
+      - { name: event_subscriber }
