@@ -1,0 +1,32 @@
+<?php
+
+use Drupal\taxonomy\Entity\Vocabulary;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field\Entity\FieldConfig;
+
+function glossary_tooltip_install(): void {
+  if (!Vocabulary::load('glossary')) {
+    $vocabulary = Vocabulary::create([
+      'vid' => 'glossary',
+      'name' => 'Glossary',
+    ]);
+    $vocabulary->save();
+  }
+
+  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_description')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_description',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'text_long',
+    ])->save();
+  }
+
+  if (!FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_description')) {
+    FieldConfig::create([
+      'field_name' => 'field_description',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'label' => 'Description',
+    ])->save();
+  }
+}
