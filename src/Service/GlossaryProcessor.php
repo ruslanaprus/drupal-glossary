@@ -3,6 +3,7 @@
 namespace Drupal\glossary_tooltip\Service;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Url;
 
 class GlossaryProcessor {
 
@@ -28,12 +29,27 @@ class GlossaryProcessor {
     $entities = $storage->loadMultiple($ids);
 
     foreach ($entities as $term) {
-      if ($term->hasField('field_description')) {
-        $terms[] = [
-          'word' => $term->getName(),
-          'description' => $term->get('field_description')->value ?? '',
-        ];
+      $raw_description = $term->getDescription();
+      $plain_description = strip_tags($raw_description);
+
+      if (empty($plain_description)) {
+        continue;
       }
+
+      $display_description = $plain_description;
+
+      if (mb_strlen($plain_description) > 100) {
+        $url = Url::fromRoute('entity.taxonomy_term.canonical', [
+          'taxonomy_term' => $term->id()
+        ])->toString();
+
+        $display_description = mb_substr($plain_description, 0, 100) . "... (Read more at $url)";
+      }
+
+      $terms[] = [
+        'word' => $term->getName(),
+        'description' => $display_description,
+      ];
     }
 
     if (empty($terms)) {
@@ -42,34 +58,29 @@ class GlossaryProcessor {
 
     $dom = new \DOMDocument();
     libxml_use_internal_errors(TRUE);
-    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
     libxml_clear_errors();
 
     $xpath = new \DOMXPath($dom);
-    $textNodes = $xpath->query('//text()');
+    $textNodes = $xpath->query('//text()[not(ancestor::a) and not(ancestor::script) and not(ancestor::style)]');
 
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
-      $modified = $original;
+      $modified = htmlspecialchars($original, ENT_QUOTES, 'UTF-8');
 
       foreach ($terms as $term) {
-        if (empty($term['description'])) {
-          continue;
-        }
+        $word = preg_quote($term['word'], '/');
+        $desc = htmlspecialchars($term['description'], ENT_QUOTES, 'UTF-8');
 
-        $word = $term['word'];
-        $description = htmlspecialchars($term['description']);
+        $pattern = '/\b(' . $word . ')\b/i';
+        $replacement = '<span class="glossary-term" title="' . $desc . '" style="font-weight:bold; text-decoration:underline; cursor:help;">$1</span>';
 
-        if (stripos($modified, $word) !== FALSE) {
-          $replacement = '<span class="glossary-term" title="' . $description . '">' . $word . '</span>';
-
-          $modified = str_ireplace($word, $replacement, $modified);
-        }
+        $modified = preg_replace($pattern, $replacement, $modified);
       }
 
-      if ($modified !== $original) {
+      if ($modified !== htmlspecialchars($original, ENT_QUOTES, 'UTF-8')) {
         $fragment = $dom->createDocumentFragment();
-        $fragment->appendXML($modified);
+        @$fragment->appendXML($modified);
         $textNode->parentNode->replaceChild($fragment, $textNode);
       }
     }
