@@ -1,0 +1,4 @@
+services:
+  glossary_tooltip.processor:
+    class: Drupal\glossary_tooltip\Service\GlossaryProcessor
+    arguments: ['@entity_type.manager']
