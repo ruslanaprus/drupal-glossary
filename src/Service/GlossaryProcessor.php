@@ -15,6 +15,7 @@ class GlossaryProcessor {
 
   public const DESCRIPTION_TRUNCATE_LENGTH = 100;
   public const XPATH_TEXT_NODES = '//text()[not(ancestor::a) and not(ancestor::script) and not(ancestor::style)]';
+  private const UTF8_XML_HEADER = '<?xml encoding="utf-8" ?>';
 
   public function __construct(EntityTypeManagerInterface $entityTypeManager, CacheBackendInterface $cache, LoggerInterface $logger) {
     $this->entityTypeManager = $entityTypeManager;
@@ -23,8 +24,8 @@ class GlossaryProcessor {
   }
 
   public function process(string $html): string {
-    if ($html === '') {
-      return '';
+    if (empty(trim($html))) {
+      return $html;
     }
 
     $terms = $this->loadGlossaryTerms();
@@ -34,11 +35,12 @@ class GlossaryProcessor {
 
     $dom = new \DOMDocument();
     libxml_use_internal_errors(TRUE);
-    $success = $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-    $errors = libxml_get_errors();
-    libxml_clear_errors();
+    $success = $dom->loadHTML(self::UTF8_XML_HEADER . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+    );
 
     if (!$success || !$dom->documentElement) {
+      $errors = libxml_get_errors();
+      libxml_clear_errors();
       $this->logger->warning('GlossaryProcessor: Failed to parse HTML. Errors: @errors', [
         '@errors' => json_encode($errors),
       ]);
@@ -47,7 +49,8 @@ class GlossaryProcessor {
 
     $this->highlightTerms($dom, $terms);
 
-    return $dom->saveHTML();
+    $output = $dom->saveHTML($dom->documentElement);
+    return str_replace(self::UTF8_XML_HEADER, '', $output);
   }
 
   private function loadGlossaryTerms(): array {
@@ -134,26 +137,28 @@ class GlossaryProcessor {
       $cursor = 0;
       $newNodes = [];
 
-      foreach ($matches[1] as [$matchWord, $pos]) {
-        if ($pos > $cursor) {
-          $newNodes[] = $dom->createTextNode(substr($original, $cursor, $pos - $cursor));
+      foreach ($matches[1] as [$matchWord, $bytePos]) {
+        $charPos = mb_strlen(substr($original, 0, $bytePos));
+
+        if ($charPos > $cursor) {
+          $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
         }
 
         $desc = $lookup[mb_strtolower($matchWord)] ?? '';
         $span = $dom->createElement('span', $matchWord);
         $span->setAttribute('class', 'glossary-term');
-        $span->setAttribute('title', htmlspecialchars($desc, ENT_QUOTES, 'UTF-8'));
+        $span->setAttribute('title', $desc);
         $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
         $newNodes[] = $span;
 
-        $cursor = $pos + strlen($matchWord);
+        $cursor = $charPos + mb_strlen($matchWord);
       }
 
-      if ($cursor < strlen($original)) {
-        $newNodes[] = $dom->createTextNode(substr($original, $cursor));
+      if ($cursor < mb_strlen($original)) {
+        $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor));
       }
 
-      if ($newNodes) {
+      if (!empty($newNodes)) {
         foreach ($newNodes as $node) {
           $parent->insertBefore($node, $textNode);
         }
