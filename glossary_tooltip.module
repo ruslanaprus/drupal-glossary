@@ -1,6 +1,7 @@
 <?php
 
 use Drupal\taxonomy\Entity\Vocabulary;
+use Drupal\Core\Cache\Cache;
 
 function glossary_tooltip_install(): void {
   if (!Vocabulary::load('glossary')) {
@@ -9,5 +10,27 @@ function glossary_tooltip_install(): void {
       'name' => 'Glossary',
     ]);
     $vocabulary->save();
+  }
+}
+
+function glossary_tooltip_entity_insert(\Drupal\Core\Entity\EntityInterface $entity)
+{
+  glossary_tooltip_invalidate_glossary_cache($entity);
+}
+
+function glossary_tooltip_entity_update(\Drupal\Core\Entity\EntityInterface $entity)
+{
+  glossary_tooltip_invalidate_glossary_cache($entity);
+}
+
+function glossary_tooltip_entity_delete(\Drupal\Core\Entity\EntityInterface $entity)
+{
+  glossary_tooltip_invalidate_glossary_cache($entity);
+}
+
+function glossary_tooltip_invalidate_glossary_cache(\Drupal\Core\Entity\EntityInterface $entity)
+{
+  if ($entity->getEntityTypeId() === 'taxonomy_term' && $entity->bundle() === 'glossary') {
+    Cache::invalidateTags(['taxonomy_term_list:glossary']);
   }
 }
