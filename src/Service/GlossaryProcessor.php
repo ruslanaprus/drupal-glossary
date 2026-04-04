@@ -113,37 +113,40 @@ class GlossaryProcessor {
     $xpath = new \DOMXPath($dom);
     $textNodes = $xpath->query(self::XPATH_TEXT_NODES);
 
-    $patterns = [];
+    $lookup = [];
     foreach ($terms as $term) {
-      $patterns[] = [
-        'regex' => '/(?<=^|[^\\p{L}])(' . preg_quote($term['word'], '/') . ')(?=$|[^\\p{L}])/iu',
-        'description' => $term['description'],
-      ];
+      $lookup[mb_strtolower($term['word'])] = $term['description'];
     }
+
+    $words = array_keys($lookup);
+    usort($words, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+
+    $regex = '/(?<=^|[^\p{L}])(' . implode('|', array_map(fn($w) => preg_quote($w, '/'), $words)) . ')(?=$|[^\p{L}])/iu';
 
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
       $parent = $textNode->parentNode;
 
+      if (!preg_match_all($regex, $original, $matches, PREG_OFFSET_CAPTURE)) {
+        continue;
+      }
+
       $cursor = 0;
       $newNodes = [];
 
-      foreach ($patterns as $pattern) {
-        if (preg_match_all($pattern['regex'], $original, $matches, PREG_OFFSET_CAPTURE)) {
-          foreach ($matches[1] as [$matchWord, $pos]) {
-            if ($pos > $cursor) {
-              $newNodes[] = $dom->createTextNode(substr($original, $cursor, $pos - $cursor));
-            }
-
-            $span = $dom->createElement('span', $matchWord);
-            $span->setAttribute('class', 'glossary-term');
-            $span->setAttribute('title', htmlspecialchars($pattern['description'], ENT_QUOTES, 'UTF-8'));
-            $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
-            $newNodes[] = $span;
-
-            $cursor = $pos + strlen($matchWord);
-          }
+      foreach ($matches[1] as [$matchWord, $pos]) {
+        if ($pos > $cursor) {
+          $newNodes[] = $dom->createTextNode(substr($original, $cursor, $pos - $cursor));
         }
+
+        $desc = $lookup[mb_strtolower($matchWord)] ?? '';
+        $span = $dom->createElement('span', $matchWord);
+        $span->setAttribute('class', 'glossary-term');
+        $span->setAttribute('title', htmlspecialchars($desc, ENT_QUOTES, 'UTF-8'));
+        $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
+        $newNodes[] = $span;
+
+        $cursor = $pos + strlen($matchWord);
       }
 
       if ($cursor < strlen($original)) {

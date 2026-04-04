@@ -31,7 +31,7 @@ function glossary_tooltip_install(): void {
       'entity_type' => 'taxonomy_term',
       'bundle' => 'glossary',
       'label' => 'Synonyms',
-      'description' => 'Here you can alternative forms of a word (plural, abbreviations, etc.)',
+      'description' => 'Here you can add alternative forms of a word (plural, abbreviations, etc.). One word per field',
       'required' => FALSE,
       'translatable' => TRUE,
     ])->save();
