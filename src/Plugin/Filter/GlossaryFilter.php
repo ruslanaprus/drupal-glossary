@@ -36,6 +36,8 @@ class GlossaryFilter extends FilterBase implements ContainerFactoryPluginInterfa
 
   public function process($text, $langcode) {
     $processed = $this->processor->process($text);
-    return new FilterProcessResult($processed);
+    $result = new FilterProcessResult($processed);
+    $result->addCacheTags(['taxonomy_term_list:glossary']);
+    return $result;
   }
 }

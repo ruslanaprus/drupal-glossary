@@ -4,16 +4,19 @@ namespace Drupal\glossary_tooltip\Service;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
+use Drupal\Core\Cache\CacheBackendInterface;
 
 class GlossaryProcessor {
 
   private EntityTypeManagerInterface $entityTypeManager;
+  private CacheBackendInterface $cache;
 
   public const DESCRIPTION_TRUNCATE_LENGTH = 100;
   public const XPATH_TEXT_NODES = '//text()[not(ancestor::a) and not(ancestor::script) and not(ancestor::style)]';
 
-  public function __construct(EntityTypeManagerInterface $entityTypeManager) {
+  public function __construct(EntityTypeManagerInterface $entityTypeManager, CacheBackendInterface $cache) {
     $this->entityTypeManager = $entityTypeManager;
+    $this->cache = $cache;
   }
 
   public function process(string $html): string {
@@ -34,6 +37,11 @@ class GlossaryProcessor {
   }
 
   private function loadGlossaryTerms(): array {
+    $cid = 'glossary_tooltip:terms';
+    if ($cache = $this->cache->get($cid)) {
+      return $cache->data;
+    }
+
     $storage = $this->entityTypeManager->getStorage('taxonomy_term');
     $ids = $storage->getQuery()
       ->condition('vid', 'glossary')
@@ -45,9 +53,7 @@ class GlossaryProcessor {
     }
 
     $terms = [];
-    $entities = $storage->loadMultiple($ids);
-
-    foreach ($entities as $term) {
+    foreach ($storage->loadMultiple($ids) as $term) {
       $desc = $this->prepareDescription($term);
       if ($desc) {
         $terms[] = [
@@ -56,14 +62,14 @@ class GlossaryProcessor {
         ];
       }
     }
+
+    $this->cache->set($cid, $terms, CacheBackendInterface::CACHE_PERMANENT, ['taxonomy_term_list:glossary']);
     return $terms;
   }
 
   private function prepareDescription($term): ?string {
-    $raw = $term->getDescription();
-    $plain = strip_tags($raw);
-
-    if (empty($plain)) {
+    $plain = strip_tags($term->getDescription());
+    if (!$plain) {
       return null;
     }
 
@@ -82,6 +88,14 @@ class GlossaryProcessor {
     $xpath = new \DOMXPath($dom);
     $textNodes = $xpath->query(self::XPATH_TEXT_NODES);
 
+    $patterns = [];
+    foreach ($terms as $term) {
+      $patterns[] = [
+        'regex' => '/\b(' . preg_quote($term['word'], '/') . ')\b/iu',
+        'description' => $term['description'],
+      ];
+    }
+
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
       $parent = $textNode->parentNode;
@@ -89,30 +103,20 @@ class GlossaryProcessor {
       $cursor = 0;
       $newNodes = [];
 
-      foreach ($terms as $term) {
-        $pattern = '/\b(' . preg_quote($term['word'], '/') . ')\b/i';
-
-        if (preg_match_all($pattern, $original, $matches, PREG_OFFSET_CAPTURE)) {
-          foreach ($matches[1] as $match) {
-            [$word, $pos] = $match;
-
+      foreach ($patterns as $pattern) {
+        if (preg_match_all($pattern['regex'], $original, $matches, PREG_OFFSET_CAPTURE)) {
+          foreach ($matches[1] as [$matchWord, $pos]) {
             if ($pos > $cursor) {
               $newNodes[] = $dom->createTextNode(substr($original, $cursor, $pos - $cursor));
             }
 
-            $span = $dom->createElement('span', $word);
+            $span = $dom->createElement('span', $matchWord);
             $span->setAttribute('class', 'glossary-term');
-            $span->setAttribute(
-              'title',
-              htmlspecialchars($term['description'], ENT_QUOTES, 'UTF-8')
-            );
-            $span->setAttribute(
-              'style',
-              'font-weight:bold; text-decoration:underline; cursor:help;'
-            );
+            $span->setAttribute('title', htmlspecialchars($pattern['description'], ENT_QUOTES, 'UTF-8'));
+            $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
             $newNodes[] = $span;
 
-            $cursor = $pos + strlen($word);
+            $cursor = $pos + strlen($matchWord);
           }
         }
       }
@@ -121,7 +125,7 @@ class GlossaryProcessor {
         $newNodes[] = $dom->createTextNode(substr($original, $cursor));
       }
 
-      if (!empty($newNodes)) {
+      if ($newNodes) {
         foreach ($newNodes as $node) {
           $parent->insertBefore($node, $textNode);
         }
