@@ -1,10 +1,21 @@
 services:
-  glossary_tooltip.processor:
-    class: Drupal\glossary_tooltip\Service\GlossaryProcessor
+  glossary_tooltip.repository:
+    class: Drupal\glossary_tooltip\Service\GlossaryRepository
     arguments:
       - '@entity_type.manager'
       - '@cache.default'
       - '@logger.channel.glossary_tooltip'
+
+  glossary_tooltip.highlighter:
+    class: Drupal\glossary_tooltip\Service\GlossaryHighlighter
+    arguments:
+      - '@logger.channel.glossary_tooltip'
+
+  glossary_tooltip.processor:
+    class: Drupal\glossary_tooltip\Service\GlossaryProcessor
+    arguments:
+      - '@glossary_tooltip.repository'
+      - '@glossary_tooltip.highlighter'
 
   logger.channel.glossary_tooltip:
     class: Drupal\Core\Logger\LoggerChannel
