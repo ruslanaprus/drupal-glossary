@@ -70,10 +70,21 @@ class GlossaryProcessor {
     foreach ($storage->loadMultiple($ids) as $term) {
       $desc = $this->prepareDescription($term);
       if ($desc) {
-        $terms[] = [
-          'word' => $term->getName(),
-          'description' => $desc,
-        ];
+        $words = [$term->getName()];
+        if ($term->hasField('field_synonyms') && !$term->get('field_synonyms')->isEmpty()) {
+          foreach ($term->get('field_synonyms')->getValue() as $item) {
+            if (!empty($item['value'])) {
+              $words[] = $item['value'];
+            }
+          }
+        }
+
+        foreach ($words as $word) {
+          $terms[] = [
+            'word' => $word,
+            'description' => $desc,
+          ];
+        }
       }
     }
 

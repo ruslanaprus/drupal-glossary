@@ -2,6 +2,9 @@
 
 use Drupal\taxonomy\Entity\Vocabulary;
 use Drupal\Core\Cache\Cache;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
 
 function glossary_tooltip_install(): void {
   if (!Vocabulary::load('glossary')) {
@@ -11,6 +14,43 @@ function glossary_tooltip_install(): void {
     ]);
     $vocabulary->save();
   }
+
+  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_synonyms')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_synonyms',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'string',
+      'cardinality' => -1,
+      'translatable' => TRUE,
+    ])->save();
+  }
+
+  if (!FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_synonyms')) {
+    FieldConfig::create([
+      'field_name' => 'field_synonyms',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'label' => 'Synonyms',
+      'description' => 'Here you can alternative forms of a word (plural, abbreviations, etc.)',
+      'required' => FALSE,
+      'translatable' => TRUE,
+    ])->save();
+  }
+
+  $form_display = EntityFormDisplay::load('taxonomy_term.glossary.default');
+  if (!$form_display) {
+    $form_display = EntityFormDisplay::create([
+      'targetEntityType' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'mode' => 'default',
+      'status' => TRUE,
+    ]);
+  }
+  $form_display->setComponent('field_synonyms', [
+    'type' => 'string_textfield',
+    'weight' => 5,
+  ]);
+  $form_display->save();
 }
 
 function glossary_tooltip_entity_insert(\Drupal\Core\Entity\EntityInterface $entity)
