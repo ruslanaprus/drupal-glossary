@@ -112,6 +112,15 @@ class GlossaryProcessor {
     return $plain;
   }
 
+  private function buildChunkedRegex(array $words, int $chunkSize = 50): array {
+    $regexes = [];
+    $chunks = array_chunk($words, $chunkSize);
+    foreach ($chunks as $chunk) {
+      $regexes[] = '/(?<=^|[^\p{L}])(' . implode('|', array_map(fn($w) => preg_quote($w, '/'), $chunk)) . ')(?=$|[^\p{L}])/iu';
+    }
+    return $regexes;
+  }
+
   private function highlightTerms(\DOMDocument $dom, array $terms): void {
     $xpath = new \DOMXPath($dom);
     $textNodes = $xpath->query(self::XPATH_TEXT_NODES);
@@ -124,45 +133,47 @@ class GlossaryProcessor {
     $words = array_keys($lookup);
     usort($words, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
 
-    $regex = '/(?<=^|[^\p{L}])(' . implode('|', array_map(fn($w) => preg_quote($w, '/'), $words)) . ')(?=$|[^\p{L}])/iu';
+    $regexes = $this->buildChunkedRegex($words);
 
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
       $parent = $textNode->parentNode;
 
-      if (!preg_match_all($regex, $original, $matches, PREG_OFFSET_CAPTURE)) {
-        continue;
-      }
-
-      $cursor = 0;
-      $newNodes = [];
-
-      foreach ($matches[1] as [$matchWord, $bytePos]) {
-        $charPos = mb_strlen(substr($original, 0, $bytePos));
-
-        if ($charPos > $cursor) {
-          $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
+      foreach ($regexes as $regex) {
+        if (!preg_match_all($regex, $original, $matches, PREG_OFFSET_CAPTURE)) {
+          continue;
         }
 
-        $desc = $lookup[mb_strtolower($matchWord)] ?? '';
-        $span = $dom->createElement('span', $matchWord);
-        $span->setAttribute('class', 'glossary-term');
-        $span->setAttribute('title', $desc);
-        $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
-        $newNodes[] = $span;
+        $cursor = 0;
+        $newNodes = [];
 
-        $cursor = $charPos + mb_strlen($matchWord);
-      }
+        foreach ($matches[1] as [$matchWord, $bytePos]) {
+          $charPos = mb_strlen(substr($original, 0, $bytePos));
 
-      if ($cursor < mb_strlen($original)) {
-        $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor));
-      }
+          if ($charPos > $cursor) {
+            $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
+          }
 
-      if (!empty($newNodes)) {
-        foreach ($newNodes as $node) {
-          $parent->insertBefore($node, $textNode);
+          $desc = $lookup[mb_strtolower($matchWord)] ?? '';
+          $span = $dom->createElement('span', $matchWord);
+          $span->setAttribute('class', 'glossary-term');
+          $span->setAttribute('title', $desc);
+          $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
+          $newNodes[] = $span;
+
+          $cursor = $charPos + mb_strlen($matchWord);
         }
-        $parent->removeChild($textNode);
+
+        if ($cursor < mb_strlen($original)) {
+          $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor));
+        }
+
+        if (!empty($newNodes)) {
+          foreach ($newNodes as $node) {
+            $parent->insertBefore($node, $textNode);
+          }
+          $parent->removeChild($textNode);
+        }
       }
     }
   }
