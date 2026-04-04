@@ -40,7 +40,7 @@ class GlossaryFilter extends FilterBase implements ContainerFactoryPluginInterfa
     $termIds = $this->processor->getGlossaryTermIds();
     $tags = array_map(fn($id) => "taxonomy_term:$id", $termIds);
     $result->addCacheTags($tags);
-
+    $result->addAttachments(['library' => ['glossary_tooltip/glossary_tooltip']]);
     return $result;
   }
 }

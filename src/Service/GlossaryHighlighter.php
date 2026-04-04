@@ -93,7 +93,6 @@ class GlossaryHighlighter {
           $span = $dom->createElement('span', $matchWord);
           $span->setAttribute('class', 'glossary-term');
           $span->setAttribute('title', $desc);
-          $span->setAttribute('style', 'font-weight:bold; text-decoration:underline; cursor:help;');
           $newNodes[] = $span;
 
           $cursor = $charPos + mb_strlen($matchWord);

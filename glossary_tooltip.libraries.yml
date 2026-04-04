@@ -1,0 +1,5 @@
+glossary_tooltip:
+  version: 1.0
+  css:
+    component:
+      css/glossary_tooltip.css: {}
