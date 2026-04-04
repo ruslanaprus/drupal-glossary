@@ -16,6 +16,7 @@ class GlossaryProcessor {
   public const DESCRIPTION_TRUNCATE_LENGTH = 100;
   public const XPATH_TEXT_NODES = '//text()[not(ancestor::a) and not(ancestor::script) and not(ancestor::style)]';
   private const UTF8_XML_HEADER = '<?xml encoding="utf-8" ?>';
+  public const REGEX_CHUNK_SIZE = 50;
 
   public function __construct(EntityTypeManagerInterface $entityTypeManager, CacheBackendInterface $cache, LoggerInterface $logger) {
     $this->entityTypeManager = $entityTypeManager;
@@ -23,7 +24,7 @@ class GlossaryProcessor {
     $this->logger = $logger;
   }
 
-  public function process(string $html): string {
+  public function processHtml(string $html): string {
     if (empty(trim($html))) {
       return $html;
     }
@@ -112,9 +113,9 @@ class GlossaryProcessor {
     return $plain;
   }
 
-  private function buildChunkedRegex(array $words, int $chunkSize = 50): array {
+  private function buildChunkedRegex(array $words): array {
     $regexes = [];
-    $chunks = array_chunk($words, $chunkSize);
+    $chunks = array_chunk($words, self::REGEX_CHUNK_SIZE);
     foreach ($chunks as $chunk) {
       $regexes[] = '/(?<=^|[^\p{L}])(' . implode('|', array_map(fn($w) => preg_quote($w, '/'), $chunk)) . ')(?=$|[^\p{L}])/iu';
     }
@@ -176,5 +177,13 @@ class GlossaryProcessor {
         }
       }
     }
+  }
+
+  public function getGlossaryTermIds(): array {
+    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+    return $storage->getQuery()
+      ->condition('vid', 'glossary')
+      ->accessCheck(FALSE)
+      ->execute();
   }
 }
