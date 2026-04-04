@@ -5,31 +5,45 @@ namespace Drupal\glossary_tooltip\Service;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Psr\Log\LoggerInterface;
 
 class GlossaryProcessor {
 
   private EntityTypeManagerInterface $entityTypeManager;
   private CacheBackendInterface $cache;
+  private LoggerInterface $logger;
 
   public const DESCRIPTION_TRUNCATE_LENGTH = 100;
   public const XPATH_TEXT_NODES = '//text()[not(ancestor::a) and not(ancestor::script) and not(ancestor::style)]';
 
-  public function __construct(EntityTypeManagerInterface $entityTypeManager, CacheBackendInterface $cache) {
+  public function __construct(EntityTypeManagerInterface $entityTypeManager, CacheBackendInterface $cache, LoggerInterface $logger) {
     $this->entityTypeManager = $entityTypeManager;
     $this->cache = $cache;
+    $this->logger = $logger;
   }
 
   public function process(string $html): string {
-    $terms = $this->loadGlossaryTerms();
+    if ($html === '') {
+      return '';
+    }
 
+    $terms = $this->loadGlossaryTerms();
     if (empty($terms)) {
       return $html;
     }
 
     $dom = new \DOMDocument();
     libxml_use_internal_errors(TRUE);
-    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    $success = $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    $errors = libxml_get_errors();
     libxml_clear_errors();
+
+    if (!$success || !$dom->documentElement) {
+      $this->logger->warning('GlossaryProcessor: Failed to parse HTML. Errors: @errors', [
+        '@errors' => json_encode($errors),
+      ]);
+      return $html;
+    }
 
     $this->highlightTerms($dom, $terms);
 
@@ -91,7 +105,7 @@ class GlossaryProcessor {
     $patterns = [];
     foreach ($terms as $term) {
       $patterns[] = [
-        'regex' => '/\b(' . preg_quote($term['word'], '/') . ')\b/iu',
+        'regex' => '/(?<=^|[^\\p{L}])(' . preg_quote($term['word'], '/') . ')(?=$|[^\\p{L}])/iu',
         'description' => $term['description'],
       ];
     }

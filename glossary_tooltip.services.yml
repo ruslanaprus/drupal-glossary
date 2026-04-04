@@ -4,3 +4,9 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@cache.default'
+      - '@logger.channel.glossary_tooltip'
+
+  logger.channel.glossary_tooltip:
+    class: Drupal\Core\Logger\LoggerChannel
+    factory: ['@logger.factory', 'get']
+    arguments: ['glossary_tooltip']
