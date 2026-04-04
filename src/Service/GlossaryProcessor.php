@@ -84,18 +84,48 @@ class GlossaryProcessor {
 
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
-      $modified = htmlspecialchars($original, ENT_QUOTES, 'UTF-8');
+      $parent = $textNode->parentNode;
+
+      $cursor = 0;
+      $newNodes = [];
 
       foreach ($terms as $term) {
         $pattern = '/\b(' . preg_quote($term['word'], '/') . ')\b/i';
-        $replacement = '<span class="glossary-term" title="' . htmlspecialchars($term['description'], ENT_QUOTES, 'UTF-8') . '" style="font-weight:bold; text-decoration:underline; cursor:help;">$1</span>';
-        $modified = preg_replace($pattern, $replacement, $modified);
+
+        if (preg_match_all($pattern, $original, $matches, PREG_OFFSET_CAPTURE)) {
+          foreach ($matches[1] as $match) {
+            [$word, $pos] = $match;
+
+            if ($pos > $cursor) {
+              $newNodes[] = $dom->createTextNode(substr($original, $cursor, $pos - $cursor));
+            }
+
+            $span = $dom->createElement('span', $word);
+            $span->setAttribute('class', 'glossary-term');
+            $span->setAttribute(
+              'title',
+              htmlspecialchars($term['description'], ENT_QUOTES, 'UTF-8')
+            );
+            $span->setAttribute(
+              'style',
+              'font-weight:bold; text-decoration:underline; cursor:help;'
+            );
+            $newNodes[] = $span;
+
+            $cursor = $pos + strlen($word);
+          }
+        }
       }
 
-      if ($modified !== htmlspecialchars($original, ENT_QUOTES, 'UTF-8')) {
-        $fragment = $dom->createDocumentFragment();
-        @$fragment->appendXML($modified);
-        $textNode->parentNode->replaceChild($fragment, $textNode);
+      if ($cursor < strlen($original)) {
+        $newNodes[] = $dom->createTextNode(substr($original, $cursor));
+      }
+
+      if (!empty($newNodes)) {
+        foreach ($newNodes as $node) {
+          $parent->insertBefore($node, $textNode);
+        }
+        $parent->removeChild($textNode);
       }
     }
   }
