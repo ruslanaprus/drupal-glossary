@@ -92,7 +92,7 @@ class GlossaryHighlighter {
           $desc = $lookup[mb_strtolower($matchWord)] ?? '';
           $span = $dom->createElement('span', $matchWord);
           $span->setAttribute('class', 'glossary-term');
-          $span->setAttribute('title', $desc);
+          $span->setAttribute('data-tooltip', $desc);
           $newNodes[] = $span;
 
           $cursor = $charPos + mb_strlen($matchWord);

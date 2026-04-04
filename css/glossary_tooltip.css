@@ -3,4 +3,39 @@
   text-decoration: underline;
   cursor: help;
   color: #0a65aa;
+  position: relative;
+}
+
+.glossary-term:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 8px;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.glossary-term:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 260px;
+  background: #1f7a73;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: normal;
+  text-decoration: none;
+  white-space: normal;
+  z-index: 9999;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+  user-select: text;
+  cursor: text;
+  line-height: 1.4;
 }
