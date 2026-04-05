@@ -27,15 +27,18 @@ class GlossaryHighlighter {
     }
 
     $this->applyHighlights($dom, $terms);
-    $output = $dom->saveHTML($dom->documentElement);
-    return str_replace(self::UTF8_XML_HEADER, '', $output);
+    $output = '';
+    foreach ($dom->documentElement->childNodes as $child) {
+      $output .= $dom->saveHTML($child);
+    }
+    return $output;
   }
 
   private function createDom(string $html): ?\DOMDocument {
     $dom = new \DOMDocument();
     libxml_use_internal_errors(TRUE);
-    $success = $dom->loadHTML(self::UTF8_XML_HEADER . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-
+    $success = $dom->loadHTML(self::UTF8_XML_HEADER . '<div>' . $html . '</div>',
+      LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
     if (!$success || !$dom->documentElement) {
       $errors = libxml_get_errors();
       libxml_clear_errors();
@@ -51,7 +54,8 @@ class GlossaryHighlighter {
     $regexes = [];
     $chunks = array_chunk($words, self::REGEX_CHUNK_SIZE);
     foreach ($chunks as $chunk) {
-      $regexes[] = '/(?<=^|[^\p{L}])(' . implode('|', array_map(fn($w) => preg_quote($w, '/'), $chunk)) . ')(?=$|[^\p{L}])/iu';
+      $regexes[] = '/(?<=^|[^\p{L}])(' . implode('|',
+          array_map(fn($w) => preg_quote($w, '/'), $chunk)) . ')(?=$|[^\p{L}])/iu';
     }
     return $regexes;
   }
