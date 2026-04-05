@@ -21,8 +21,8 @@ class GlossaryRepository {
     $this->logger = $logger;
   }
 
-  public function getTerms(): array {
-    $cid = 'glossary_tooltip:terms';
+  public function getGlossaryData(): array {
+    $cid = 'glossary_tooltip:terms_data';
     if ($cache = $this->cache->get($cid)) {
       return $cache->data;
     }
@@ -34,7 +34,7 @@ class GlossaryRepository {
       ->execute();
 
     if (empty($ids)) {
-      return [];
+      return ['terms' => [], 'ids' => []];
     }
 
     $terms = [];
@@ -54,18 +54,28 @@ class GlossaryRepository {
       }
 
       foreach ($words as $word) {
-        $terms[] = [
+        $entry = [
           'word' => $word,
           'description' => $desc,
         ];
+
+        if (is_array($desc) && isset($desc['url'])) {
+          $entry['url'] = $desc['url'];
+          $entry['description'] = $desc['text'];
+          $entry['is_truncated'] = TRUE;
+        } else {
+          $entry['is_truncated'] = FALSE;
+        }
+        $terms[] = $entry;
       }
     }
 
-    $this->cache->set($cid, $terms, CacheBackendInterface::CACHE_PERMANENT, ['taxonomy_term_list:glossary']);
-    return $terms;
+    $data = ['terms' => $terms, 'ids' => array_values($ids)];
+    $this->cache->set($cid, $data, CacheBackendInterface::CACHE_PERMANENT, ['taxonomy_term_list:glossary']);
+    return $data;
   }
 
-  private function prepareDescription($term): ?string {
+  private function prepareDescription($term) {
     $plain = strip_tags($term->getDescription());
     if (!$plain) {
       return null;
@@ -81,17 +91,12 @@ class GlossaryRepository {
         return mb_substr($plain, 0, self::DESCRIPTION_TRUNCATE_LENGTH);
       }
 
-      return mb_substr($plain, 0, self::DESCRIPTION_TRUNCATE_LENGTH) . "... (Read more at $url)";
+      return [
+        'text' => mb_substr($plain, 0, self::DESCRIPTION_TRUNCATE_LENGTH) . "...",
+        'url' => $url,
+      ];
     }
 
     return $plain;
-  }
-
-  public function getGlossaryTermIds(): array {
-    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
-    return $storage->getQuery()
-      ->condition('vid', 'glossary')
-      ->accessCheck(FALSE)
-      ->execute();
   }
 }

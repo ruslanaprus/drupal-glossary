@@ -13,11 +13,11 @@ class GlossaryProcessor {
   }
 
   public function processHtml(string $html): string {
-    $terms = $this->repository->getTerms();
-    return $this->highlighter->highlight($html, $terms);
+    $data = $this->getGlossaryData();
+    return $this->highlighter->highlight($html, $data['terms']);
   }
 
-  public function getGlossaryTermIds(): array {
-    return $this->repository->getGlossaryTermIds();
+  public function getGlossaryData(): array {
+    return $this->repository->getGlossaryData();
   }
 }
