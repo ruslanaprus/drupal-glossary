@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.taxonomy_term.glossary.field_synonyms
+id: taxonomy_term.glossary.default
+targetEntityType: taxonomy_term
+bundle: glossary
+mode: default
+content:
+  field_synonyms:
+    type: string_textfield
+    weight: 5
+    settings: {  }
+    third_party_settings: {  }
+hidden: {  }

@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - taxonomy
+    - field
+id: taxonomy_term.field_synonyms
+field_name: field_synonyms
+entity_type: taxonomy_term
+type: string
+settings: {  }
+module: core
+locked: false
+cardinality: -1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

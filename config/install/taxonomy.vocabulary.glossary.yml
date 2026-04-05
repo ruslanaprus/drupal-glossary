@@ -1,0 +1,8 @@
+langcode: en
+status: true
+dependencies: {  }
+name: 'Glossary'
+vid: glossary
+description: 'Vocabulary for glossary terms'
+hierarchy: 0
+weight: 0

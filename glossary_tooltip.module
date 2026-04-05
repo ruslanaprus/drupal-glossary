@@ -1,56 +1,29 @@
 <?php
 
-use Drupal\taxonomy\Entity\Vocabulary;
 use Drupal\Core\Cache\Cache;
-use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\field\Entity\FieldConfig;
-use Drupal\Core\Entity\Entity\EntityFormDisplay;
 
-function glossary_tooltip_install(): void {
-  if (!Vocabulary::load('glossary')) {
-    $vocabulary = Vocabulary::create([
-      'vid' => 'glossary',
-      'name' => 'Glossary',
-    ]);
-    $vocabulary->save();
+function glossary_tooltip_install(): void
+{
+  if (!\Drupal\taxonomy\Entity\Vocabulary::load('glossary')) {
+    \Drupal::logger('glossary_tooltip')->warning(
+      'Glossary vocabulary was not found after install. Please ensure configuration was imported.'
+    );
   }
+}
 
-  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_synonyms')) {
-    FieldStorageConfig::create([
-      'field_name' => 'field_synonyms',
-      'entity_type' => 'taxonomy_term',
-      'type' => 'string',
-      'cardinality' => -1,
-      'translatable' => TRUE,
-    ])->save();
-  }
+function glossary_tooltip_uninstall(): void
+{
+  Cache::invalidateTags(['taxonomy_term_list:glossary']);
 
-  if (!FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_synonyms')) {
-    FieldConfig::create([
-      'field_name' => 'field_synonyms',
-      'entity_type' => 'taxonomy_term',
-      'bundle' => 'glossary',
-      'label' => 'Synonyms',
-      'description' => 'Here you can add alternative forms of a word (plural, abbreviations, etc.). One word per field',
-      'required' => FALSE,
-      'translatable' => TRUE,
-    ])->save();
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  $terms = $term_storage->loadByProperties(['vid' => 'glossary']);
+  if (!empty($terms)) {
+    $term_storage->delete($terms);
   }
-
-  $form_display = EntityFormDisplay::load('taxonomy_term.glossary.default');
-  if (!$form_display) {
-    $form_display = EntityFormDisplay::create([
-      'targetEntityType' => 'taxonomy_term',
-      'bundle' => 'glossary',
-      'mode' => 'default',
-      'status' => TRUE,
-    ]);
+  $vocab = \Drupal\taxonomy\Entity\Vocabulary::load('glossary');
+  if ($vocab) {
+    $vocab->delete();
   }
-  $form_display->setComponent('field_synonyms', [
-    'type' => 'string_textfield',
-    'weight' => 5,
-  ]);
-  $form_display->save();
 }
 
 function glossary_tooltip_entity_insert(\Drupal\Core\Entity\EntityInterface $entity)
