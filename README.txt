@@ -12,3 +12,5 @@ Go to Configuration → Content authoring → Text formats and editors. Edit the
 For plugin to work:
 Glossary terms must be added in the “glossary” vocabulary with a description.
 Place this filter after the basic HTML cleanup filter.
+
+To uninstall the module, turn the Glossary filter off in Configuration.
