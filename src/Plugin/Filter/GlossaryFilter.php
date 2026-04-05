@@ -4,7 +4,7 @@ namespace Drupal\glossary_tooltip\Plugin\Filter;
 
 use Drupal\filter\Plugin\FilterBase;
 use Drupal\filter\FilterProcessResult;
-use Drupal\glossary_tooltip\Service\GlossaryProcessor;
+use Drupal\glossary_tooltip\GlossaryProcessor;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 

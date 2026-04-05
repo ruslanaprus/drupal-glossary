@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\glossary_tooltip\Service;
+namespace Drupal\glossary_tooltip;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
