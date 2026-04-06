@@ -66,7 +66,11 @@ class GlossaryHighlighter {
 
     $lookup = [];
     foreach ($terms as $term) {
-      $lookup[mb_strtolower($term['word'])] = $term['description'];
+      $lookup[mb_strtolower($term['word'])] = [
+        'description' => $term['description'],
+        'url' => $term['url'] ?? NULL,
+        'is_truncated' => $term['is_truncated'] ?? FALSE,
+      ];
     }
 
     $words = array_keys($lookup);
@@ -93,10 +97,12 @@ class GlossaryHighlighter {
             $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
           }
 
-          $desc = $lookup[mb_strtolower($matchWord)] ?? '';
-          $span = $dom->createElement('span', $matchWord);
-          $span->setAttribute('class', 'glossary-term');
-          $span->setAttribute('data-tooltip', $desc);
+          $termData = $lookup[mb_strtolower($matchWord)] ?? null;
+          if (!$termData) {
+            continue;
+          }
+
+          $span = $this->createHighlightedTerm($dom, $matchWord, $termData);
           $newNodes[] = $span;
 
           $cursor = $charPos + mb_strlen($matchWord);
@@ -114,5 +120,31 @@ class GlossaryHighlighter {
         }
       }
     }
+  }
+
+  private function createHighlightedTerm(\DOMDocument $dom, string $word, array $termData): \DOMElement {
+    $span = $dom->createElement('span', $word);
+    $span->setAttribute('class', 'glossary-term');
+
+    $tooltip = $dom->createElement('span', '');
+    $tooltip->setAttribute('class', 'glossary-tooltip');
+
+    $tooltipText = $dom->createTextNode($termData['description']);
+    $tooltip->appendChild($tooltipText);
+
+    if (!empty($termData['is_truncated']) && !empty($termData['url'])) {
+      $dots = $dom->createTextNode('... ');
+      $tooltip->appendChild($dots);
+
+      $link = $dom->createElement('a', 'Read more');
+      $link->setAttribute('href', $termData['url']);
+      $link->setAttribute('class', 'glossary-tooltip-link');
+      $link->setAttribute('target', '_blank');
+      $link->setAttribute('rel', 'noopener noreferrer');
+      $tooltip->appendChild($link);
+    }
+
+    $span->appendChild($tooltip);
+    return $span;
   }
 }
