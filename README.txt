@@ -1,8 +1,10 @@
 ABOUT GLOSSARY TOOLTIP MODULE
 ------------------------------------
 
-GLOSSARY TOOLTIP FILTER
-----------------
+The Glossary Tooltip module highlights glossary terms in content of the web page and shows their definitions in a tooltip. It can work with both English and Ukrainian. The Glossary Tooltip module works through a filter plugin.
+
+GLOSSARY TOOLTIP FILTER PLUGIN
+------------------------------------
 
 The Glossary Tooltip Filter automatically finds words from the site’s glossary and adds a tooltip with their description. This filter makes your content easier to read by showing quick explanations for important words. If a word is listed in the site’s glossary, it will be highlighted, and readers can see its meaning when they move their mouse over it.
 
