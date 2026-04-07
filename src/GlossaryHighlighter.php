@@ -50,14 +50,18 @@ class GlossaryHighlighter {
     return $dom;
   }
 
-  private function buildRegexes(array $words): array {
-    $regexes = [];
+  private function buildCombinedRegex(array $words): string {
     $chunks = array_chunk($words, self::REGEX_CHUNK_SIZE);
+    $patterns = [];
+
     foreach ($chunks as $chunk) {
-      $regexes[] = '/(?<=^|[^\p{L}])(' . implode('|',
-          array_map(fn($w) => preg_quote($w, '/'), $chunk)) . ')(?=$|[^\p{L}])/iu';
+      $patterns[] = '(' . implode('|',
+          array_map(fn($w) => preg_quote($w, '/'), $chunk)
+        ) . ')';
     }
-    return $regexes;
+
+    $pattern = '/(?<=^|[^\p{L}])(' . implode('|', $patterns) . ')(?=$|[^\p{L}])/iu';
+    return $pattern;
   }
 
   private function applyHighlights(\DOMDocument $dom, array $terms): void {
@@ -76,48 +80,44 @@ class GlossaryHighlighter {
     $words = array_keys($lookup);
     usort($words, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
 
-    $regexes = $this->buildRegexes($words);
+    $regex = $this->buildCombinedRegex($words);
 
     foreach ($textNodes as $textNode) {
       $original = $textNode->nodeValue;
       $parent = $textNode->parentNode;
 
-      foreach ($regexes as $regex) {
-        if (!preg_match_all($regex, $original, $matches, PREG_OFFSET_CAPTURE)) {
-          continue;
+      if (!preg_match_all($regex, $original, $matches, PREG_OFFSET_CAPTURE)) {
+        continue;
+      }
+
+      $cursor = 0;
+      $newNodes = [];
+
+      foreach ($matches[1] as [$matchWord, $bytePos]) {
+        $charPos = mb_strlen(mb_strcut($original, 0, $bytePos));
+
+        if ($charPos > $cursor) {
+          $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
         }
 
-        $cursor = 0;
-        $newNodes = [];
-
-        foreach ($matches[1] as [$matchWord, $bytePos]) {
-          $charPos = mb_strlen(substr($original, 0, $bytePos));
-
-          if ($charPos > $cursor) {
-            $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor, $charPos - $cursor));
-          }
-
-          $termData = $lookup[mb_strtolower($matchWord)] ?? null;
-          if (!$termData) {
-            continue;
-          }
-
+        $termData = $lookup[mb_strtolower($matchWord)] ?? null;
+        if ($termData) {
           $span = $this->createHighlightedTerm($dom, $matchWord, $termData);
           $newNodes[] = $span;
-
-          $cursor = $charPos + mb_strlen($matchWord);
         }
 
-        if ($cursor < mb_strlen($original)) {
-          $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor));
-        }
+        $cursor = $charPos + mb_strlen($matchWord);
+      }
 
-        if (!empty($newNodes)) {
-          foreach ($newNodes as $node) {
-            $parent->insertBefore($node, $textNode);
-          }
-          $parent->removeChild($textNode);
+      if ($cursor < mb_strlen($original)) {
+        $newNodes[] = $dom->createTextNode(mb_substr($original, $cursor));
+      }
+
+      if (!empty($newNodes)) {
+        foreach ($newNodes as $node) {
+          $parent->insertBefore($node, $textNode);
         }
+        $parent->removeChild($textNode);
       }
     }
   }
